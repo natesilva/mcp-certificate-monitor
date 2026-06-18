@@ -1,0 +1,29 @@
+[project]
+name = "mcp-certificate-monitor"
+version = "0.1.0"
+description = "A FastMCP server that lets an AI host monitor certificate expiry across a set of domains"
+readme = "README.md"
+authors = [
+    { name = "Nate Silva", email = "nate@natesilva.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "cryptography>=49.0.0",
+    "fastmcp>=3.4.2",
+    "platformdirs>=4.10.0",
+    "pydantic>=2.13.4",
+    "typing-extensions>=4.15.0",
+]
+
+[project.scripts]
+mcp-certificate-monitor = "mcp_certificate_monitor:main"
+
+[build-system]
+requires = ["uv_build>=0.11.21,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.0",
+    "pytest-mock>=3.15.1",
+]
