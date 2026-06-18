@@ -1,7 +1,9 @@
 import asyncio
+import json
 from datetime import UTC, datetime
 
 from fastmcp import FastMCP
+from fastmcp.prompts import Message
 
 from mcp_certificate_monitor import cert, store
 
@@ -54,6 +56,86 @@ async def scan_all() -> list[dict]:
         }
 
     return list(await asyncio.gather(*(_check(h) for h in hosts)))
+
+
+@mcp.resource("cert-monitor://hosts")
+def list_hosts_resource() -> str:
+    """Return all monitored hosts and their last certificate results as JSON."""
+    hosts = store.list_hosts()
+    return json.dumps([h.model_dump(mode="json") for h in hosts])
+
+
+@mcp.resource("cert-monitor://hosts/{domain}")
+def get_host_resource(domain: str) -> str:
+    """Return a single monitored host's stored state as JSON."""
+    try:
+        host = store.get_host(domain)
+        return json.dumps(host.model_dump(mode="json"))
+    except ValueError:
+        return json.dumps({"error": f"Host not found: {domain}"})
+
+
+@mcp.prompt()
+def audit_certificates() -> list[Message]:
+    """Prompt the AI to analyze the current certificate expiry report."""
+    hosts = store.list_hosts()
+    critical: list[dict] = []
+    warning: list[dict] = []
+    ok: list[dict] = []
+
+    for host in hosts:
+        entry: dict = {"domain": host.domain, "days_remaining": None, "error": None}
+        if host.last_result is None:
+            entry["error"] = "never checked"
+            critical.append(entry)
+        elif host.last_result.error is not None:
+            entry["error"] = host.last_result.error
+            critical.append(entry)
+        elif host.last_result.days_remaining <= CRITICAL_DAYS:
+            entry["days_remaining"] = host.last_result.days_remaining
+            critical.append(entry)
+        elif host.last_result.days_remaining <= WARNING_DAYS:
+            entry["days_remaining"] = host.last_result.days_remaining
+            warning.append(entry)
+        else:
+            entry["days_remaining"] = host.last_result.days_remaining
+            ok.append(entry)
+
+    report = {"critical": critical, "warning": warning, "ok": ok}
+    content = (
+        f"Analyze the following SSL/TLS certificate expiry report and identify certificates requiring attention.\n\n"
+        f"Certificate Expiry Report:\n{json.dumps(report, indent=2)}\n\n"
+        f"Please identify:\n"
+        f"1. Critical certificates (expired or expiring within {CRITICAL_DAYS} days) needing immediate action\n"
+        f"2. Warning certificates (expiring within {WARNING_DAYS} days) to prioritize\n"
+        f"3. Certificates showing errors that need investigation\n"
+        f"4. Recommended renewal order"
+    )
+    return [Message(role="user", content=content)]
+
+
+@mcp.prompt()
+def plan_renewal(domain: str) -> list[Message]:
+    """Prompt the AI to draft a certificate renewal action plan for a domain."""
+    try:
+        host = store.get_host(domain)
+    except ValueError:
+        return [Message(
+            role="user",
+            content=f"The domain '{domain}' is not currently monitored. Add it first using the add_monitored_host tool.",
+        )]
+
+    content = (
+        f"Create a certificate renewal action plan for the following domain.\n\n"
+        f"Domain: {domain}\n"
+        f"Certificate Details:\n{json.dumps(host.model_dump(mode='json'), indent=2)}\n\n"
+        f"Please provide:\n"
+        f"1. An urgency assessment based on the expiry date and days remaining\n"
+        f"2. Step-by-step renewal process recommendations\n"
+        f"3. Validation steps to confirm the renewal succeeded\n"
+        f"4. Suggested monitoring frequency going forward"
+    )
+    return [Message(role="user", content=content)]
 
 
 @mcp.tool()

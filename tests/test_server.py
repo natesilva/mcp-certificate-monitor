@@ -1,4 +1,5 @@
 import asyncio
+import json
 from datetime import UTC, datetime
 
 import pytest
@@ -8,8 +9,12 @@ from mcp_certificate_monitor.server import (
     CRITICAL_DAYS,
     WARNING_DAYS,
     add_monitored_host,
+    audit_certificates,
     check_certificate,
     get_expiry_report,
+    get_host_resource,
+    list_hosts_resource,
+    plan_renewal,
     remove_host,
     scan_all,
 )
@@ -187,3 +192,130 @@ class TestGetExpiryReport:
         assert report["critical"] == []
         assert report["warning"] == []
         assert report["ok"] == []
+
+
+class TestListHostsResource:
+    def test_empty_store_returns_empty_array(self):
+        result = json.loads(list_hosts_resource())
+        assert result == []
+
+    def test_populated_store_returns_all_hosts(self, monkeypatch):
+        monkeypatch.setattr(cert, "fetch_certificate", lambda d, p=443: _fake_result())
+        add_monitored_host("a.example.com")
+        add_monitored_host("b.example.com")
+        result = json.loads(list_hosts_resource())
+        assert len(result) == 2
+        domains = {h["domain"] for h in result}
+        assert domains == {"a.example.com", "b.example.com"}
+
+    def test_each_entry_has_required_fields(self, monkeypatch):
+        monkeypatch.setattr(cert, "fetch_certificate", lambda d, p=443: _fake_result())
+        add_monitored_host("example.com")
+        result = json.loads(list_hosts_resource())
+        assert len(result) == 1
+        entry = result[0]
+        assert "domain" in entry
+        assert "port" in entry
+        assert "last_checked" in entry
+        assert "last_result" in entry
+
+    def test_reflects_state_after_add(self, monkeypatch):
+        monkeypatch.setattr(cert, "fetch_certificate", lambda d, p=443: _fake_result())
+        assert json.loads(list_hosts_resource()) == []
+        add_monitored_host("example.com")
+        result = json.loads(list_hosts_resource())
+        assert any(h["domain"] == "example.com" for h in result)
+
+
+class TestGetHostResource:
+    def test_known_domain_returns_host_data(self, monkeypatch):
+        monkeypatch.setattr(cert, "fetch_certificate", lambda d, p=443: _fake_result())
+        add_monitored_host("example.com")
+        result = json.loads(get_host_resource("example.com"))
+        assert result["domain"] == "example.com"
+        assert "port" in result
+        assert "last_checked" in result
+        assert "last_result" in result
+
+    def test_unknown_domain_returns_error_json(self):
+        result = json.loads(get_host_resource("missing.example.com"))
+        assert "error" in result
+        assert "missing.example.com" in result["error"]
+
+    def test_reflects_updated_result_after_scan(self, monkeypatch):
+        store.add_host("example.com")
+        result_before = json.loads(get_host_resource("example.com"))
+        assert result_before["last_result"] is None
+
+        monkeypatch.setattr(cert, "fetch_certificate", lambda d, p=443: _fake_result(days_remaining=45))
+        asyncio.run(scan_all())
+        result_after = json.loads(get_host_resource("example.com"))
+        assert result_after["last_result"]["days_remaining"] == 45
+
+
+class TestAuditCertificatesPrompt:
+    def test_returns_nonempty_message_list(self):
+        messages = audit_certificates()
+        assert len(messages) > 0
+
+    def test_works_with_empty_store(self):
+        messages = audit_certificates()
+        assert len(messages) > 0
+        content = messages[0].content.text
+        assert isinstance(content, str)
+
+    def test_includes_host_domain_in_content(self, monkeypatch):
+        store.add_host("example.com")
+        store.update_host_result("example.com", _fake_result(days_remaining=5))
+        messages = audit_certificates()
+        content = messages[0].content.text
+        assert "example.com" in content
+
+    def test_includes_days_remaining_data(self, monkeypatch):
+        store.add_host("warning.example.com")
+        store.update_host_result("warning.example.com", _fake_result(days_remaining=20))
+        messages = audit_certificates()
+        content = messages[0].content.text
+        assert "warning.example.com" in content
+        assert "20" in content
+
+    def test_classifies_hosts_in_content(self):
+        store.add_host("critical.example.com")
+        store.update_host_result("critical.example.com", _fake_result(days_remaining=5))
+        messages = audit_certificates()
+        content = messages[0].content.text
+        assert "critical" in content.lower()
+
+
+class TestPlanRenewalPrompt:
+    def test_known_domain_returns_nonempty_message_list(self, monkeypatch):
+        monkeypatch.setattr(cert, "fetch_certificate", lambda d, p=443: _fake_result(days_remaining=10))
+        add_monitored_host("example.com")
+        messages = plan_renewal("example.com")
+        assert len(messages) > 0
+
+    def test_known_domain_includes_domain_in_content(self, monkeypatch):
+        monkeypatch.setattr(cert, "fetch_certificate", lambda d, p=443: _fake_result(days_remaining=10))
+        add_monitored_host("example.com")
+        messages = plan_renewal("example.com")
+        content = messages[0].content.text
+        assert "example.com" in content
+
+    def test_known_domain_includes_cert_details(self, monkeypatch):
+        monkeypatch.setattr(cert, "fetch_certificate", lambda d, p=443: _fake_result(days_remaining=10))
+        add_monitored_host("example.com")
+        messages = plan_renewal("example.com")
+        content = messages[0].content.text
+        assert "days_remaining" in content
+        assert "10" in content
+
+    def test_unknown_domain_returns_informative_message(self):
+        messages = plan_renewal("unknown.example.com")
+        assert len(messages) > 0
+        content = messages[0].content.text
+        assert "unknown.example.com" in content
+        assert "not" in content.lower()
+
+    def test_unknown_domain_does_not_raise(self):
+        messages = plan_renewal("not-in-store.example.com")
+        assert isinstance(messages, list)
