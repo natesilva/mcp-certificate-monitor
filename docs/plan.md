@@ -188,6 +188,22 @@ These are module-level constants in `server.py` so they're easy to adjust.
 
 ---
 
+## Milestones
+
+### M1 — Core Certificate Engine
+`cert.py` and `store.py` are complete and independently testable. A developer can run a one-liner to fetch a live certificate and see parsed output. Persistent storage reads and writes correctly with atomic writes and Pydantic validation.
+
+### M2 — Working MCP Server (Tools Only)
+All five tools are registered in `server.py` and functional via `fastmcp dev`. An AI host can add hosts, check certificates, scan all, remove hosts, and read an expiry report against live domains.
+
+### M3 — Resources and Prompts
+All three resources (`cert://hosts`, `cert://host/{domain}`, `cert://report`) and both prompts (`cert_audit`, `renewal_plan`) are registered and return correct data. The server passes a full end-to-end session in the MCP Inspector.
+
+### M4 — Hardened and Packaged
+Error handling is complete (network failures, corrupt store, missing hosts). The package is installable via `uv run mcp-certificate-monitor` and wired into Claude Desktop. Manual smoke test passes against a real domain inventory.
+
+---
+
 ## Implementation Order
 
 1. `cert.py` — certificate fetching (testable in isolation with `python -c`)
