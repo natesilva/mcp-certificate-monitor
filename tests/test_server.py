@@ -13,6 +13,7 @@ from mcp_certificate_monitor.server import (
     check_certificate,
     get_expiry_report,
     get_host_resource,
+    get_report_resource,
     list_hosts_resource,
     plan_renewal,
     remove_host,
@@ -319,3 +320,105 @@ class TestPlanRenewalPrompt:
     def test_unknown_domain_does_not_raise(self):
         messages = plan_renewal("not-in-store.example.com")
         assert isinstance(messages, list)
+
+
+_LONG_DOMAIN = "a" * 254
+
+
+class TestInputValidation:
+    def test_empty_domain_rejected_by_check_certificate(self):
+        with pytest.raises(ValueError, match="empty"):
+            check_certificate("")
+
+    def test_whitespace_domain_rejected_by_check_certificate(self):
+        with pytest.raises(ValueError, match="empty"):
+            check_certificate("   ")
+
+    def test_long_domain_rejected_by_check_certificate(self):
+        with pytest.raises(ValueError, match="253"):
+            check_certificate(_LONG_DOMAIN)
+
+    def test_empty_domain_rejected_by_add_monitored_host(self):
+        with pytest.raises(ValueError, match="empty"):
+            add_monitored_host("")
+
+    def test_long_domain_rejected_by_add_monitored_host(self):
+        with pytest.raises(ValueError, match="253"):
+            add_monitored_host(_LONG_DOMAIN)
+
+    def test_empty_domain_rejected_by_remove_host(self):
+        with pytest.raises(ValueError, match="empty"):
+            remove_host("")
+
+    def test_long_domain_rejected_by_remove_host(self):
+        with pytest.raises(ValueError, match="253"):
+            remove_host(_LONG_DOMAIN)
+
+    def test_port_zero_rejected_by_check_certificate(self):
+        with pytest.raises(ValueError, match="65535"):
+            check_certificate("example.com", port=0)
+
+    def test_port_too_high_rejected_by_check_certificate(self):
+        with pytest.raises(ValueError, match="65535"):
+            check_certificate("example.com", port=65536)
+
+    def test_port_zero_rejected_by_add_monitored_host(self):
+        with pytest.raises(ValueError, match="65535"):
+            add_monitored_host("example.com", port=0)
+
+    def test_port_too_high_rejected_by_add_monitored_host(self):
+        with pytest.raises(ValueError, match="65535"):
+            add_monitored_host("example.com", port=65536)
+
+    def test_valid_inputs_pass_through(self, monkeypatch):
+        monkeypatch.setattr(cert, "fetch_certificate", lambda d, p=443: _fake_result())
+        result = check_certificate("example.com", port=443)
+        assert isinstance(result, dict)
+
+    def test_no_store_mutation_on_invalid_domain(self):
+        with pytest.raises(ValueError):
+            add_monitored_host("")
+        assert store.list_hosts() == []
+
+
+class TestGetReportResource:
+    def _add_with_result(self, domain: str, days_remaining: int | None = None, error: str | None = None) -> None:
+        store.add_host(domain)
+        if days_remaining is not None or error is not None:
+            result = _fake_result(days_remaining=days_remaining or 0, error=error)
+            store.update_host_result(domain, result)
+
+    def test_empty_store_returns_empty_buckets(self):
+        result = json.loads(get_report_resource())
+        assert result["critical"] == []
+        assert result["warning"] == []
+        assert result["ok"] == []
+        assert "generated_at" in result
+
+    def test_buckets_match_expiry_report_tool(self):
+        self._add_with_result("critical.example.com", days_remaining=CRITICAL_DAYS)
+        self._add_with_result("warning.example.com", days_remaining=WARNING_DAYS)
+        self._add_with_result("ok.example.com", days_remaining=WARNING_DAYS + 1)
+        result = json.loads(get_report_resource())
+        assert any(h["domain"] == "critical.example.com" for h in result["critical"])
+        assert any(h["domain"] == "warning.example.com" for h in result["warning"])
+        assert any(h["domain"] == "ok.example.com" for h in result["ok"])
+
+    def test_errored_host_in_critical(self):
+        self._add_with_result("bad.example.com", error="tls error")
+        result = json.loads(get_report_resource())
+        assert any(h["domain"] == "bad.example.com" for h in result["critical"])
+
+    def test_never_checked_host_in_critical(self):
+        store.add_host("new.example.com")
+        result = json.loads(get_report_resource())
+        entry = next(h for h in result["critical"] if h["domain"] == "new.example.com")
+        assert entry["error"] == "never checked"
+        assert entry["days_remaining"] is None
+
+    def test_no_live_fetch(self, monkeypatch):
+        store.add_host("example.com")
+        fetch_called = []
+        monkeypatch.setattr(cert, "fetch_certificate", lambda d, p=443: fetch_called.append(d) or _fake_result())
+        get_report_resource()
+        assert fetch_called == []

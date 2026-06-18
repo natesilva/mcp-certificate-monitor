@@ -13,9 +13,23 @@ CRITICAL_DAYS: int = 14
 WARNING_DAYS: int = 30
 
 
+def _validate_domain(domain: str) -> None:
+    if not domain or not domain.strip():
+        raise ValueError("domain must not be empty")
+    if len(domain) > 253:
+        raise ValueError(f"domain must be 253 characters or fewer, got {len(domain)}")
+
+
+def _validate_port(port: int) -> None:
+    if port < 1 or port > 65535:
+        raise ValueError(f"port must be between 1 and 65535, got {port}")
+
+
 @mcp.tool()
 def check_certificate(domain: str, port: int = 443) -> dict:
     """Fetch a live SSL/TLS certificate for a domain without updating stored state."""
+    _validate_domain(domain)
+    _validate_port(port)
     result = cert.fetch_certificate(domain, port)
     return result.model_dump(mode="json")
 
@@ -23,6 +37,8 @@ def check_certificate(domain: str, port: int = 443) -> dict:
 @mcp.tool()
 def add_monitored_host(domain: str, port: int = 443) -> dict:
     """Add a domain to the monitored host list and immediately check its certificate."""
+    _validate_domain(domain)
+    _validate_port(port)
     store.add_host(domain, port)
     result = cert.fetch_certificate(domain, port)
     store.update_host_result(domain, result)
@@ -33,6 +49,7 @@ def add_monitored_host(domain: str, port: int = 443) -> dict:
 @mcp.tool()
 def remove_host(domain: str) -> str:
     """Remove a domain from the monitored host list."""
+    _validate_domain(domain)
     store.remove_host(domain)
     return f"Removed {domain} from monitored hosts."
 
@@ -73,6 +90,40 @@ def get_host_resource(domain: str) -> str:
         return json.dumps(host.model_dump(mode="json"))
     except ValueError:
         return json.dumps({"error": f"Host not found: {domain}"})
+
+
+@mcp.resource("cert-monitor://report")
+def get_report_resource() -> str:
+    """Return the certificate expiry report bucketed by risk level as JSON."""
+    hosts = store.list_hosts()
+    critical: list[dict] = []
+    warning: list[dict] = []
+    ok: list[dict] = []
+
+    for host in hosts:
+        entry: dict = {"domain": host.domain, "port": host.port, "days_remaining": None, "error": None}
+        if host.last_result is None:
+            entry["error"] = "never checked"
+            critical.append(entry)
+        elif host.last_result.error is not None:
+            entry["error"] = host.last_result.error
+            critical.append(entry)
+        elif host.last_result.days_remaining <= CRITICAL_DAYS:
+            entry["days_remaining"] = host.last_result.days_remaining
+            critical.append(entry)
+        elif host.last_result.days_remaining <= WARNING_DAYS:
+            entry["days_remaining"] = host.last_result.days_remaining
+            warning.append(entry)
+        else:
+            entry["days_remaining"] = host.last_result.days_remaining
+            ok.append(entry)
+
+    return json.dumps({
+        "generated_at": datetime.now(UTC).isoformat(),
+        "critical": critical,
+        "warning": warning,
+        "ok": ok,
+    })
 
 
 @mcp.prompt()
