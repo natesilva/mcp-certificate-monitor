@@ -35,6 +35,13 @@ Add the following to your Claude Desktop config file:
 
 Replace `/path/to/mcp-certificate-monitor` with the absolute path to this project directory.
 
+## Documentation
+
+- [Usage Guide](docs/usage.md) — how to monitor certificates through conversation in Claude Desktop
+- [Architecture](docs/architecture.md) — module layout, data models, storage schema, and design decisions
+- [Tools, Resources & Prompts](docs/tools-resources-prompts.md) — complete MCP API reference
+- [Configuration](docs/configuration.md) — storage paths, Claude Desktop integration, MCP Inspector
+
 ## Development
 
 ```bash
@@ -45,5 +52,5 @@ uv sync
 uv run pytest
 
 # Launch the MCP Inspector (interactive browser UI)
-uv run fastmcp dev src/mcp_certificate_monitor/server.py
+uv run fastmcp dev inspector src/mcp_certificate_monitor/server.py
 ```
