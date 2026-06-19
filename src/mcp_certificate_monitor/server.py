@@ -1,13 +1,14 @@
 import asyncio
 import json
 from datetime import UTC, datetime
+from importlib.metadata import version
 
 from fastmcp import FastMCP
 from fastmcp.prompts import Message
 
 from mcp_certificate_monitor import cert, store
 
-mcp = FastMCP("Certificate Monitor")
+mcp = FastMCP("Certificate Monitor", version=version("mcp-certificate-monitor"))
 
 CRITICAL_DAYS: int = 14
 WARNING_DAYS: int = 30
@@ -75,14 +76,14 @@ async def scan_all() -> list[dict]:
     return list(await asyncio.gather(*(_check(h) for h in hosts)))
 
 
-@mcp.resource("cert-monitor://hosts")
+@mcp.resource("mcp-certificate-monitor://hosts")
 def list_hosts_resource() -> str:
     """Return all monitored hosts and their last certificate results as JSON."""
     hosts = store.list_hosts()
     return json.dumps([h.model_dump(mode="json") for h in hosts])
 
 
-@mcp.resource("cert-monitor://hosts/{domain}")
+@mcp.resource("mcp-certificate-monitor://hosts/{domain}")
 def get_host_resource(domain: str) -> str:
     """Return a single monitored host's stored state as JSON."""
     try:
@@ -92,7 +93,7 @@ def get_host_resource(domain: str) -> str:
         return json.dumps({"error": f"Host not found: {domain}"})
 
 
-@mcp.resource("cert-monitor://report")
+@mcp.resource("mcp-certificate-monitor://report")
 def get_report_resource() -> str:
     """Return the certificate expiry report bucketed by risk level as JSON."""
     hosts = store.list_hosts()

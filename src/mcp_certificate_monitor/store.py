@@ -25,7 +25,7 @@ class HostStore(BaseModel):
 
 
 def _data_path() -> Path:
-    return Path(platformdirs.user_data_dir("cert-monitor")) / "hosts.json"
+    return Path(platformdirs.user_data_dir("mcp-certificate-monitor")) / "hosts.json"
 
 
 def load() -> HostStore:

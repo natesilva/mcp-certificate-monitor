@@ -38,7 +38,7 @@ def _fake_result(days_remaining: int = 90, error: str | None = None) -> cert.Cer
 
 @pytest.fixture(autouse=True)
 def isolated_store(tmp_path, monkeypatch):
-    data_file = tmp_path / "cert-monitor" / "hosts.json"
+    data_file = tmp_path / "mcp-certificate-monitor" / "hosts.json"
     import mcp_certificate_monitor.store as store_module
     monkeypatch.setattr(store_module, "_data_path", lambda: data_file)
     return data_file
