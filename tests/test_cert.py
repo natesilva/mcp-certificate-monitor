@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mcp_certificate_monitor.cert import CertResult, _error_result, fetch_certificate
+from mcp_certificate_monitor.cert import CertResult, _error_result, _normalize_dn, fetch_certificate
 
 _FAKE_CERT = {
     "subject": ((("commonName", "example.com"),),),
@@ -15,6 +15,23 @@ _FAKE_CERT = {
     "serialNumber": "DEADBEEF",
     "subjectAltName": (("DNS", "example.com"), ("DNS", "www.example.com")),
 }
+
+
+class TestNormalizeDN:
+    def test_multi_component_dn(self):
+        rdns = (
+            (("countryName", "US"),),
+            (("organizationName", "Let's Encrypt"),),
+            (("commonName", "R11"),),
+        )
+        assert _normalize_dn(rdns) == "countryName=US, organizationName=Let's Encrypt, commonName=R11"
+
+    def test_single_component_dn(self):
+        rdns = ((("commonName", "example.com"),),)
+        assert _normalize_dn(rdns) == "commonName=example.com"
+
+    def test_empty_input(self):
+        assert _normalize_dn(()) == ""
 
 
 class TestCertResult:
@@ -78,8 +95,8 @@ class TestFetchCertificate:
                 result = fetch_certificate("example.com")
 
         assert result.error is None
-        assert result.subject == "example.com"
-        assert result.issuer == "Test CA"
+        assert result.subject == "commonName=example.com"
+        assert result.issuer == "commonName=Test CA"
         assert result.serial == "DEADBEEF"
         assert "example.com" in result.san
         assert "www.example.com" in result.san

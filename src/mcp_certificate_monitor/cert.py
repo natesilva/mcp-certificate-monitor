@@ -55,14 +55,8 @@ def _is_san_list(val: object) -> TypeGuard[_SANList]:
 
 
 def _normalize_dn(rdns: _RDNSequence) -> str:
-    """Return the CN value from a getpeercert() RDN tuple, or the full first RDN."""
-    for rdn in rdns:
-        for key, value in rdn:
-            if key == "commonName":
-                return value
-    if rdns:
-        return ", ".join(f"{k}={v}" for k, v in rdns[0])
-    return ""
+    pairs = [f"{k}={v}" for rdn in rdns for k, v in rdn]
+    return ", ".join(pairs)
 
 
 def fetch_certificate(domain: str, port: int = 443) -> CertResult:
