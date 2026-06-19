@@ -74,4 +74,4 @@ After renewing, verify it worked:
 
 ---
 
-[Setup guide →](../README.md) · [Tool & resource reference →](reference.md)
+[Setup guide →](https://github.com/natesilva/mcp-certificate-monitor#setup) · [Tool & resource reference →](https://github.com/natesilva/mcp-certificate-monitor/blob/main/docs/reference.md)

@@ -68,5 +68,5 @@ Then use this config instead:
 
 ## Documentation
 
-- [What it does and example conversations](docs/overview.md)
-- [Tool, resource & prompt reference](docs/reference.md)
+- [What it does and example conversations](https://github.com/natesilva/mcp-certificate-monitor/blob/main/docs/overview.md)
+- [Tool, resource & prompt reference](https://github.com/natesilva/mcp-certificate-monitor/blob/main/docs/reference.md)
