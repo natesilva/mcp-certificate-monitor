@@ -18,7 +18,7 @@ The system SHALL define `MonitoredHost` and `HostStore` Pydantic `BaseModel` cla
 - **THEN** `hosts` is an empty dict
 
 ### Requirement: Load store from disk
-The system SHALL provide a `load() -> HostStore` function that reads `hosts.json` from `platformdirs.user_data_dir("cert-monitor")` and returns a validated `HostStore`. It SHALL use `HostStore.model_validate_json()` for parsing so that ISO 8601 datetimes are coerced automatically.
+The system SHALL provide a `load() -> HostStore` function that reads `hosts.json` from `platformdirs.user_data_dir("mcp-certificate-monitor")` and returns a validated `HostStore`. It SHALL use `HostStore.model_validate_json()` for parsing so that ISO 8601 datetimes are coerced automatically.
 
 #### Scenario: Load existing valid JSON
 - **WHEN** `hosts.json` exists and contains valid JSON matching the `HostStore` schema

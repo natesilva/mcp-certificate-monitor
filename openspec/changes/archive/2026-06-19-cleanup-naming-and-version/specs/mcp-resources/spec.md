@@ -1,10 +1,4 @@
-# MCP Resources
-
-## Purpose
-
-Defines requirements for the MCP Resources exposed by the certificate monitor server. Covers both the list resource for all monitored hosts and the template resource for retrieving a single host's stored state.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: cert-monitor://hosts list resource
 The system SHALL expose an MCP Resource at URI `mcp-certificate-monitor://hosts` that reads all monitored hosts from the store via `store.list_hosts()` and returns their serialized state as a JSON string. Each host entry SHALL include `domain`, `port`, `last_checked`, and `last_result` (or `null` if never checked).
