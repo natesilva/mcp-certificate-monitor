@@ -1,4 +1,4 @@
-# MCP Tools, Resources, and Prompts
+# MCP API Reference
 
 ## Tools
 

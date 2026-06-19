@@ -1,25 +1,29 @@
 # MCP Certificate Monitor
 
-A FastMCP server that lets an AI host monitor SSL/TLS certificate expiry across a set of domains.
+Monitor SSL/TLS certificate expiry across your domains by asking Claude — no dashboards, no command-line tools.
 
-## Features
+## Prerequisites
 
-- **Tools**: Check live certificates, add/remove monitored hosts, scan all hosts in parallel, get an expiry report
-- **Resources**: Read stored host state and expiry reports without making live network calls
-- **Prompts**: Structured templates for certificate audits and renewal planning
+- [uv](https://docs.astral.sh/uv/) installed
+- [Claude Desktop](https://claude.ai/download) installed
 
-## Running with uv
+## Setup
+
+**1. Clone this repository**
 
 ```bash
-uv run mcp-certificate-monitor
+git clone https://github.com/natesilva/mcp-certificate-monitor
+cd mcp-certificate-monitor
 ```
 
-## Claude Desktop Integration
+**2. Add the server to your Claude Desktop config**
 
-Add the following to your Claude Desktop config file:
+Open the Claude Desktop configuration file:
 
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+Add the following (replace the path with the absolute path to this directory):
 
 ```json
 {
@@ -33,24 +37,19 @@ Add the following to your Claude Desktop config file:
 }
 ```
 
-Replace `/path/to/mcp-certificate-monitor` with the absolute path to this project directory.
+**3. Restart Claude Desktop**
+
+After saving the config file, restart Claude Desktop. The server starts automatically when Claude needs it.
+
+**4. Verify the connection**
+
+Open a new conversation in Claude Desktop and ask:
+
+> What certificate monitoring tools do you have available?
+
+Claude should describe the tools exposed by this server (check certificate, add host, scan all, etc.).
 
 ## Documentation
 
-- [Usage Guide](docs/usage.md) — how to monitor certificates through conversation in Claude Desktop
-- [Architecture](docs/architecture.md) — module layout, data models, storage schema, and design decisions
-- [Tools, Resources & Prompts](docs/tools-resources-prompts.md) — complete MCP API reference
-- [Configuration](docs/configuration.md) — storage paths, Claude Desktop integration, MCP Inspector
-
-## Development
-
-```bash
-# Install dependencies
-uv sync
-
-# Run tests
-uv run pytest
-
-# Launch the MCP Inspector (interactive browser UI)
-uv run fastmcp dev inspector src/mcp_certificate_monitor/server.py
-```
+- [What it does and example conversations](docs/overview.md)
+- [Tool, resource & prompt reference](docs/reference.md)
