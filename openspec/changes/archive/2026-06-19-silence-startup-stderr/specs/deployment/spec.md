@@ -1,10 +1,4 @@
-# Deployment
-
-## Purpose
-
-Defines requirements for packaging and deploying the MCP Certificate Monitor server, including the installable entry point and Claude Desktop integration configuration.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Package entry point
 The system SHALL define a console script entry point `mcp-certificate-monitor` in `pyproject.toml` that resolves to a `main()` function in `mcp_certificate_monitor/__init__.py`. The `main()` function SHALL call `mcp.run(show_banner=False)` to start the FastMCP server with the startup banner suppressed. Before calling `mcp.run()`, `main()` SHALL raise the `fastmcp` Python logger threshold to `WARNING` to suppress INFO-level startup messages. Running `uv run mcp-certificate-monitor` SHALL launch the server without writing anything to stderr under normal conditions.
@@ -20,10 +14,3 @@ The system SHALL define a console script entry point `mcp-certificate-monitor` i
 #### Scenario: No stderr output on startup
 - **WHEN** `uv run mcp-certificate-monitor` is launched via stdio transport
 - **THEN** nothing is written to stderr during startup under normal conditions
-
-### Requirement: Claude Desktop configuration
-The `README.md` SHALL document how to wire the server into Claude Desktop by adding a `cert-monitor` entry to `claude_desktop_config.json`. The documented configuration SHALL use `uv` as the command with `["run", "mcp-certificate-monitor"]` as args, enabling zero-install usage from the project directory.
-
-#### Scenario: README contains Claude Desktop JSON
-- **WHEN** `README.md` is read
-- **THEN** it contains a JSON snippet showing a `cert-monitor` MCP server entry with `"command": "uv"` and `"args": ["run", "mcp-certificate-monitor"]`
